@@ -19,9 +19,9 @@ def make_mlp(dim_list, activation='relu', batch_norm=True, dropout=0):
 
 def get_noise(shape, noise_type):
     if noise_type == 'gaussian':
-        return torch.randn(*shape).cuda()
+        return torch.randn(*shape).cpu()#.cuda()
     elif noise_type == 'uniform':
-        return torch.rand(*shape).sub_(0.5).mul_(2.0).cuda()
+        return torch.rand(*shape).sub_(0.5).mul_(2.0).cpu()#.cuda()
     raise ValueError('Unrecognized noise type "%s"' % noise_type)
 
 
@@ -47,8 +47,8 @@ class Encoder(nn.Module):
 
     def init_hidden(self, batch):
         return (
-            torch.zeros(self.num_layers, batch, self.h_dim).cuda(),
-            torch.zeros(self.num_layers, batch, self.h_dim).cuda()
+            torch.zeros(self.num_layers, batch, self.h_dim).cpu(),#.cuda(),
+            torch.zeros(self.num_layers, batch, self.h_dim).cpu()#.cuda()
         )
 
     def forward(self, obs_traj):
@@ -60,8 +60,8 @@ class Encoder(nn.Module):
         """
         # Encode observed Trajectory
         batch = obs_traj.size(1)
-        obs_traj_embedding = self.spatial_embedding(obs_traj.view(-1, 2))
-        obs_traj_embedding = obs_traj_embedding.view(
+        obs_traj_embedding = self.spatial_embedding(obs_traj.reshape(-1, 2))
+        obs_traj_embedding = obs_traj_embedding.reshape(
             -1, batch, self.embedding_dim
         )
         state_tuple = self.init_hidden(batch)
@@ -528,7 +528,7 @@ class TrajectoryGenerator(nn.Module):
 
         decoder_c = torch.zeros(
             self.num_layers, batch, self.decoder_h_dim
-        ).cuda()
+        ).cpu()#cuda()
 
         state_tuple = (decoder_h, decoder_c)
         last_pos = obs_traj[-1]
