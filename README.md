@@ -6,6 +6,10 @@ In addition to the original implementation:
 Using these options to do inference from another project using Flask
 --model_path models/sgan-p-models/eth_8_model.pt --external True
 
+Package Dependencies: flask, requests, Torch >= 0.4.1
+
+TODO: fix train to use GPU again, just check some hacked .cpu() overrides that i did in model.
+
 # Social GAN
 
 This is the code for the paper
