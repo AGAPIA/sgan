@@ -1,3 +1,8 @@
+In addition to the original implementation:
+- Added Flask support to do inference from other frameworks (check evaluate_mode.py)
+- Inference works on CPU for less dependencies and faster feedback when small number of agents
+ - Corrected a train vs eval option
+
 # Social GAN
 
 This is the code for the paper
