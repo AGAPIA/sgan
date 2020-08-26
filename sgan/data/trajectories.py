@@ -1,9 +1,9 @@
 import logging
 import os
 import math
-
+import pickle
 import numpy as np
-
+import os
 import torch
 from torch.utils.data import Dataset
 
@@ -68,11 +68,13 @@ def poly_fit(traj, traj_len, threshold):
         return 0.0
 
 
+TRAJECTORY_DATASET_CACHEFILENAME = "dataset_cache.pkl"
+
 class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
     def __init__(
         self, data_dir, obs_len=8, pred_len=12, skip=1, threshold=0.002,
-        min_ped=1, delim='\t'
+        min_ped=1, delim='\t', useCache=False
     ):
         """
         Args:
@@ -95,68 +97,99 @@ class TrajectoryDataset(Dataset):
         self.seq_len = self.obs_len + self.pred_len
         self.delim = delim
 
-        all_files = os.listdir(self.data_dir)
-        all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
-        num_peds_in_seq = []
-        seq_list = []
-        seq_list_rel = []
-        loss_mask_list = []
-        non_linear_ped = []
-        for path in all_files:
-            data = read_file(path, delim)
-            frames = np.unique(data[:, 0]).tolist()
-            frame_data = []
-            for frame in frames:
-                frame_data.append(data[frame == data[:, 0], :])
-            num_sequences = int(
-                math.ceil((len(frames) - self.seq_len + 1) / skip))
+        cacheFilePath = os.path.join(data_dir, TRAJECTORY_DATASET_CACHEFILENAME)
+        if useCache and os.path.exists(cacheFilePath):
+            logging.info("Reloading cached data for dataset given..")
+            with open(cacheFilePath, "rb") as testFile:
+                cachedData = pickle.load(testFile)
 
-            for idx in range(0, num_sequences * self.skip + 1, skip):
-                curr_seq_data = np.concatenate(
-                    frame_data[idx:idx + self.seq_len], axis=0)
-                peds_in_curr_seq = np.unique(curr_seq_data[:, 1])
-                curr_seq_rel = np.zeros((len(peds_in_curr_seq), 2,
-                                         self.seq_len))
-                curr_seq = np.zeros((len(peds_in_curr_seq), 2, self.seq_len))
-                curr_loss_mask = np.zeros((len(peds_in_curr_seq),
-                                           self.seq_len))
-                num_peds_considered = 0
-                _non_linear_ped = []
-                for _, ped_id in enumerate(peds_in_curr_seq):
-                    curr_ped_seq = curr_seq_data[curr_seq_data[:, 1] ==
-                                                 ped_id, :]
-                    curr_ped_seq = np.around(curr_ped_seq, decimals=4)
-                    pad_front = frames.index(curr_ped_seq[0, 0]) - idx
-                    pad_end = frames.index(curr_ped_seq[-1, 0]) - idx + 1
-                    if pad_end - pad_front != self.seq_len:
-                        continue
-                    curr_ped_seq = np.transpose(curr_ped_seq[:, 2:])
-                    curr_ped_seq = curr_ped_seq
-                    # Make coordinates relative
-                    rel_curr_ped_seq = np.zeros(curr_ped_seq.shape)
-                    rel_curr_ped_seq[:, 1:] = \
-                        curr_ped_seq[:, 1:] - curr_ped_seq[:, :-1]
-                    _idx = num_peds_considered
-                    curr_seq[_idx, :, pad_front:pad_end] = curr_ped_seq
-                    curr_seq_rel[_idx, :, pad_front:pad_end] = rel_curr_ped_seq
-                    # Linear vs Non-Linear Trajectory
-                    _non_linear_ped.append(
-                        poly_fit(curr_ped_seq, pred_len, threshold))
-                    curr_loss_mask[_idx, pad_front:pad_end] = 1
-                    num_peds_considered += 1
+            seq_list = cachedData['seq_list']
+            seq_list_rel = cachedData['seq_list_rel']
+            loss_mask_list = cachedData['loss_mask_list']
+            non_linear_ped = cachedData['non_linear_ped']
+            num_peds_in_seq = cachedData['num_peds_in_seq']
+        else:
+            all_files = os.listdir(self.data_dir)
+            all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
+            num_peds_in_seq = []
+            seq_list = []
+            seq_list_rel = []
+            loss_mask_list = []
+            non_linear_ped = []
+            for pathIndex, path in enumerate(all_files):
+                logging.info("Reading file index {0}/{1}, folder path: {2}".format(pathIndex, len(all_files), path))
+                data = read_file(path, delim)
+                frames = np.unique(data[:, 0]).tolist()
+                frame_data = []
+                for frame in frames:
+                    frame_data.append(data[frame == data[:, 0], :])
+                num_sequences = int(
+                    math.ceil((len(frames) - self.seq_len + 1) / skip))
 
-                if num_peds_considered > min_ped:
-                    non_linear_ped += _non_linear_ped
-                    num_peds_in_seq.append(num_peds_considered)
-                    loss_mask_list.append(curr_loss_mask[:num_peds_considered])
-                    seq_list.append(curr_seq[:num_peds_considered])
-                    seq_list_rel.append(curr_seq_rel[:num_peds_considered])
+                for idx in range(0, num_sequences * self.skip + 1, skip):
+                    curr_seq_data = np.concatenate(
+                        frame_data[idx:idx + self.seq_len], axis=0)
+                    peds_in_curr_seq = np.unique(curr_seq_data[:, 1])
+                    curr_seq_rel = np.zeros((len(peds_in_curr_seq), 2,
+                                             self.seq_len))
+                    curr_seq = np.zeros((len(peds_in_curr_seq), 2, self.seq_len))
+                    curr_loss_mask = np.zeros((len(peds_in_curr_seq),
+                                               self.seq_len))
+                    num_peds_considered = 0
+                    _non_linear_ped = []
+                    for _, ped_id in enumerate(peds_in_curr_seq):
+                        curr_ped_seq = curr_seq_data[curr_seq_data[:, 1] ==
+                                                     ped_id, :]
 
-        self.num_seq = len(seq_list)
-        seq_list = np.concatenate(seq_list, axis=0)
-        seq_list_rel = np.concatenate(seq_list_rel, axis=0)
-        loss_mask_list = np.concatenate(loss_mask_list, axis=0)
-        non_linear_ped = np.asarray(non_linear_ped)
+                        curr_ped_seq = np.around(curr_ped_seq, decimals=4)
+                        pad_front = frames.index(curr_ped_seq[0, 0]) - idx
+                        pad_end = frames.index(curr_ped_seq[-1, 0]) - idx + 1
+
+                        # We have to check if the pedestrian id appeared for the desired number of frames
+                        if pad_end - pad_front != self.seq_len:
+                            continue
+
+                        if len(curr_ped_seq) < self.seq_len:
+                            continue
+
+                        curr_ped_seq = np.transpose(curr_ped_seq[:, 2:])
+                        curr_ped_seq = curr_ped_seq
+                        # Make coordinates relative
+                        rel_curr_ped_seq = np.zeros(curr_ped_seq.shape)
+                        rel_curr_ped_seq[:, 1:] = \
+                            curr_ped_seq[:, 1:] - curr_ped_seq[:, :-1]
+                        _idx = num_peds_considered
+                        curr_seq[_idx, :, pad_front:pad_end] = curr_ped_seq
+                        curr_seq_rel[_idx, :, pad_front:pad_end] = rel_curr_ped_seq
+                        # Linear vs Non-Linear Trajectory
+                        _non_linear_ped.append(
+                            poly_fit(curr_ped_seq, pred_len, threshold))
+                        curr_loss_mask[_idx, pad_front:pad_end] = 1
+                        num_peds_considered += 1
+
+                    if num_peds_considered > min_ped:
+                        non_linear_ped += _non_linear_ped
+                        num_peds_in_seq.append(num_peds_considered)
+                        loss_mask_list.append(curr_loss_mask[:num_peds_considered])
+                        seq_list.append(curr_seq[:num_peds_considered])
+                        seq_list_rel.append(curr_seq_rel[:num_peds_considered])
+
+            seq_list = np.concatenate(seq_list, axis=0)
+            seq_list_rel = np.concatenate(seq_list_rel, axis=0)
+            loss_mask_list = np.concatenate(loss_mask_list, axis=0)
+            non_linear_ped = np.asarray(non_linear_ped)
+
+            if useCache:
+                logging.info("Saving cached data for dataset given..")
+                cachedData = {'seq_list' : seq_list,
+                              'seq_list_rel' : seq_list_rel,
+                              'loss_mask_list' : loss_mask_list,
+                             'non_linear_ped' : non_linear_ped,
+                              'num_peds_in_seq' : num_peds_in_seq
+                            }
+
+                with open(cacheFilePath, "wb") as testFile:
+                    pickle.dump(cachedData, testFile)
 
         # Convert numpy -> Torch Tensor
         self.obs_traj = torch.from_numpy(
@@ -174,6 +207,8 @@ class TrajectoryDataset(Dataset):
             (start, end)
             for start, end in zip(cum_start_idx, cum_start_idx[1:])
         ]
+
+        self.num_seq = len(self.seq_start_end)
 
     def __len__(self):
         return self.num_seq

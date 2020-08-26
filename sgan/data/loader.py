@@ -9,7 +9,8 @@ def data_loader(args, path):
         obs_len=args.obs_len,
         pred_len=args.pred_len,
         skip=args.skip,
-        delim=args.delim)
+        delim=args.delim,
+        useCache=args.useCachingForDatasets)
 
     loader = DataLoader(
         dset,

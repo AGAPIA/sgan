@@ -19,6 +19,7 @@ parser.add_argument('--external', type=bool, default=False)
 parser.add_argument('--use_gpu', default=0, type=int)
 parser.add_argument('--timing', default=0, type=int)
 parser.add_argument('--gpu_num', default="0", type=str)
+parser.add_argument('--useCachingForDatasets', default=1, type = int)
 
 
 def get_generator(checkpoint):
