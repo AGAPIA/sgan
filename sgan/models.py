@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import config
 
 def make_mlp(dim_list, activation='relu', batch_norm=True, dropout=0):
     layers = []
@@ -19,9 +19,9 @@ def make_mlp(dim_list, activation='relu', batch_norm=True, dropout=0):
 
 def get_noise(shape, noise_type):
     if noise_type == 'gaussian':
-        return torch.randn(*shape).cpu()#.cuda()
+        return torch.randn(*shape).to(config.g_device)
     elif noise_type == 'uniform':
-        return torch.rand(*shape).sub_(0.5).mul_(2.0).cpu()#.cuda()
+        return torch.rand(*shape).sub_(0.5).mul_(2.0).to(config.g_device)
     raise ValueError('Unrecognized noise type "%s"' % noise_type)
 
 
@@ -47,8 +47,8 @@ class Encoder(nn.Module):
 
     def init_hidden(self, batch):
         return (
-            torch.zeros(self.num_layers, batch, self.h_dim).cpu(),#.cuda(),
-            torch.zeros(self.num_layers, batch, self.h_dim).cpu()#.cuda()
+            torch.zeros(self.num_layers, batch, self.h_dim).to(config.g_device),
+            torch.zeros(self.num_layers, batch, self.h_dim).to(config.g_device)
         )
 
     def forward(self, obs_traj):
@@ -422,7 +422,7 @@ class TrajectoryGenerator(nn.Module):
                 grid_size=grid_size
             )
 
-        if self.noise_dim[0] == 0:
+        if self.noise_dim == None or self.noise_dim[0] == 0:
             self.noise_dim = None
         else:
             self.noise_first_dim = noise_dim[0]
@@ -528,7 +528,7 @@ class TrajectoryGenerator(nn.Module):
 
         decoder_c = torch.zeros(
             self.num_layers, batch, self.decoder_h_dim
-        ).cpu()#cuda()
+        ).to(config.g_device)
 
         state_tuple = (decoder_h, decoder_c)
         last_pos = obs_traj[-1]

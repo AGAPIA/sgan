@@ -18,6 +18,7 @@ from sgan.losses import displacement_error, final_displacement_error
 from sgan.models import TrajectoryGenerator, TrajectoryDiscriminator
 from sgan.utils import int_tuple, bool_flag, get_total_norm
 from sgan.utils import relative_to_abs, get_dset_path
+import config
 
 torch.backends.cudnn.benchmark = True
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 # Dataset options
 parser.add_argument('--dataset_name', default='zara1', type=str)
 parser.add_argument('--delim', default=' ')
-parser.add_argument('--loader_num_workers', default=0, type=int)
+parser.add_argument('--loader_num_workers', default=4, type=int)
 parser.add_argument('--obs_len', default=8, type=int)
 parser.add_argument('--pred_len', default=8, type=int)
 parser.add_argument('--skip', default=1, type=int)
@@ -98,7 +99,7 @@ def init_weights(m):
     if classname.find('Linear') != -1:
         nn.init.kaiming_normal_(m.weight)
 
-
+"""
 def get_dtypes(args):
     long_dtype = torch.LongTensor
     float_dtype = torch.FloatTensor
@@ -106,6 +107,7 @@ def get_dtypes(args):
         long_dtype = torch.cuda.LongTensor
         float_dtype = torch.cuda.FloatTensor
     return long_dtype, float_dtype
+"""
 
 
 def main(args):
@@ -113,7 +115,9 @@ def main(args):
     train_path = get_dset_path(args.dataset_name, 'train')
     val_path = get_dset_path(args.dataset_name, 'val')
 
-    long_dtype, float_dtype = get_dtypes(args)
+    config.initDevice(args.use_gpu)
+    #print(config.getDevice())
+    #print(config.g_device)
 
     logger.info("Initializing train dataset")
     train_dset, train_loader = data_loader(args, train_path)
@@ -148,7 +152,7 @@ def main(args):
         batch_norm=args.batch_norm)
 
     generator.apply(init_weights)
-    generator.type(float_dtype).train()
+    generator.to(config.g_device).train() # Move to device and training mode
     logger.info('Here is the generator:')
     logger.info(generator)
 
@@ -164,7 +168,7 @@ def main(args):
         d_type=args.d_type)
 
     discriminator.apply(init_weights)
-    discriminator.type(float_dtype).train()
+    discriminator.to(config.g_device).train()  # Move to device and training mode
     logger.info('Here is the discriminator:')
     logger.info(discriminator)
 
@@ -362,7 +366,7 @@ def main(args):
 def discriminator_step(
     args, batch, generator, discriminator, d_loss_fn, optimizer_d
 ):
-    batch = [tensor.cuda() for tensor in batch]
+    batch = [tensor.to(config.g_device) for tensor in batch]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, non_linear_ped,
      loss_mask, seq_start_end) = batch
     losses = {}
@@ -400,7 +404,7 @@ def discriminator_step(
 def generator_step(
     args, batch, generator, discriminator, g_loss_fn, optimizer_g
 ):
-    batch = [tensor.cuda() for tensor in batch]
+    batch = [tensor.to(config.g_device) for tensor in batch]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, non_linear_ped,
      loss_mask, seq_start_end) = batch
     losses = {}
@@ -468,7 +472,7 @@ def check_accuracy(
     generator.eval()
     with torch.no_grad():
         for batch in loader:
-            batch = [tensor.cuda() for tensor in batch]
+            batch = [tensor.to(config.g_device) for tensor in batch]
             (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel,
              non_linear_ped, loss_mask, seq_start_end) = batch
             linear_ped = 1 - non_linear_ped

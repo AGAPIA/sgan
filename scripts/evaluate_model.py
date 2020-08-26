@@ -1,7 +1,7 @@
 import argparse
 import os
 import torch
-
+import config
 from attrdict import AttrDict
 
 from sgan.data.loader import data_loader
@@ -16,10 +16,14 @@ parser.add_argument('--dset_type', default='test', type=str)
 parser.add_argument('--external_test', type=bool, default=False)
 parser.add_argument('--external', type=bool, default=False)
 
+parser.add_argument('--use_gpu', default=0, type=int)
+parser.add_argument('--timing', default=0, type=int)
+parser.add_argument('--gpu_num', default="0", type=str)
+
 
 def get_generator(checkpoint):
     args = AttrDict(checkpoint['args'])
-    args['loader_num_workers'] = 0
+    #args['loader_num_workers'] = 0
     generator = TrajectoryGenerator(
         obs_len=args.obs_len,
         pred_len=args.pred_len,
@@ -108,7 +112,7 @@ def main(args):
         checkpoint = torch.load(path)
         generator = get_generator(checkpoint)
         _args = AttrDict(checkpoint['args'])
-        _args['loader_num_workers'] = 0
+        #_args['loader_num_workers'] = 0
         path = get_dset_path(_args.dataset_name, args.dset_type)
         _, loader = data_loader(_args, path)
         ade, fde = evaluate(_args, loader, generator, args.num_samples)
@@ -237,7 +241,7 @@ def deloyModelForFlaskInference():
     global generator
     generator = get_generator(checkpoint)
     _args = AttrDict(checkpoint['args'])
-    _args['loader_num_workers'] = 0
+    #_args['loader_num_workers'] = 0
 
 def startExternalTest():
     deloyModelForFlaskInference()
@@ -278,10 +282,13 @@ def startExternalTest():
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    if True and args.external == True:
+    config.setDevice(args.use_gpu)
+
+
+    if False and args.external == True:
         deloyModelForFlaskInference()
         app.run()
-    elif args.external_test == True:
+    elif False and args.external_test == True:
         startExternalTest()
     else: # normal evaluation
         main(args)

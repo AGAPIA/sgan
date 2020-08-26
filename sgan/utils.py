@@ -6,7 +6,6 @@ import inspect
 from contextlib import contextmanager
 import subprocess
 
-
 def int_tuple(s):
     return tuple(int(i) for i in s.split(','))
 
