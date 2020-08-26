@@ -2,6 +2,13 @@ In addition to the original implementation:
 - Added Flask support to do inference from other frameworks (check evaluate_mode.py)
 - Inference works on CPU for less dependencies and faster feedback when small number of agents
  - Corrected a train vs eval option
+ 
+Using these options to do inference from another project using Flask
+--model_path models/sgan-p-models/eth_8_model.pt --external True
+
+Package Dependencies: flask, requests, Torch >= 0.4.1
+
+TODO: fix train to use GPU again, just check some hacked .cpu() overrides that i did in model.
 
 # Social GAN
 
