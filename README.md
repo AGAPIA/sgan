@@ -7,10 +7,15 @@ In addition to the original implementation:
 Using these options to do inference from another project using Flask
 --model_path models/sgan-p-models/eth_8_model.pt --external True
 
-Package Dependencies: flask, requests, Torch >= 0.4.1
+Package Dependencies: flask, requests, Torch >= 0.4.1 ( I tested on 1.5)
 
 TODO: very important !!: I put a limited number of agents per sequence search for 10 constant in trajectories.py !!! We should eliminate this thing and 
 split the data in more small batches instead !!!!!!! Do not forget
+
+How to use:
+Evaluation: python scripts/evaluate_model.py --model_path models/sgan-p-models/waymo_8_model.pt --external 1 --external_test 0 
+(use 0 for external if you want just normal evaluation of the dataset, or 0 for external and 1 for external_test to just check a sample inference locally)
+Training: python scripts/train.py --dataset_name Waymo_full2 --delim tab --batch_size 32
 
 # Social GAN
 
