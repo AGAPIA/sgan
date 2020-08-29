@@ -1,14 +1,16 @@
 In addition to the original implementation:
+- Added much more richer datasets using Waymo and Carla datasets
 - Added Flask support to do inference from other frameworks (check evaluate_mode.py)
 - Inference works on CPU for less dependencies and faster feedback when small number of agents
- - Corrected a train vs eval option
+ - Corrected a train vs eval option, CPU / GPU train and inference configuration through a config.py script setup
  
 Using these options to do inference from another project using Flask
 --model_path models/sgan-p-models/eth_8_model.pt --external True
 
 Package Dependencies: flask, requests, Torch >= 0.4.1
 
-TODO: fix train to use GPU again, just check some hacked .cpu() overrides that i did in model.
+TODO: very important !!: I put a limited number of agents per sequence search for 10 constant in trajectories.py !!! We should eliminate this thing and 
+split the data in more small batches instead !!!!!!! Do not forget
 
 # Social GAN
 
