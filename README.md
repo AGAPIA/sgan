@@ -1,5 +1,5 @@
 In addition to the original implementation:
-- Added Waymo and Carla datasets
+- Added Waymo and Carla datasets plus pretrained models
 - Added Flask support to do inference from other frameworks (check evaluate_mode.py)
 - Inference works on CPU for less dependencies and faster feedback when small number of agents
  - Corrected a train vs eval option, CPU / GPU train and inference configuration through a config.py script setup
