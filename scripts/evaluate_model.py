@@ -3,18 +3,22 @@ import os
 import torch
 import config
 from attrdict import AttrDict
+import sys
+#sys.path.append(os.getcwd())
+sys.path.append("/home/ciprian/clusterciprian/Work/sgan")
 
 from sgan.data.loader import data_loader
 from sgan.models import TrajectoryGenerator
 from sgan.losses import displacement_error, final_displacement_error
 from sgan.utils import relative_to_abs, get_dset_path
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_path', type=str)
 parser.add_argument('--num_samples', default=20, type=int)
 parser.add_argument('--dset_type', default='test', type=str)
-parser.add_argument('--external_test', type=bool, default=False)
-parser.add_argument('--external', type=bool, default=False)
+parser.add_argument('--external_test', type=int, default=0)
+parser.add_argument('--external', type=int, default=1)
 
 parser.add_argument('--use_gpu', default=0, type=int)
 parser.add_argument('--timing', default=0, type=int)
@@ -283,13 +287,23 @@ def startExternalTest():
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    config.setDevice(args.use_gpu)
+    config.initDevice(args.use_gpu)
 
 
-    if False and args.external == True:
+    if True and args.external == True:
         deloyModelForFlaskInference()
-        app.run()
-    elif False and args.external_test == True:
+
+        if "carla" in args.model_path:
+            print("Running deployment for Carla...")
+            app.run(host="localhost", port=5100, debug=False)
+        elif "waymo" in args.model_path:
+            print("Running deployment for Waymo...")
+            app.run(host="localhost", port=5101, debug=False)
+        else:
+            print("Running deployment for others...")
+            app.run(host="localhost", port=8100, debug=False)
+
+    elif True and args.external_test == True:
         startExternalTest()
     else: # normal evaluation
         main(args)

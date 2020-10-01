@@ -6,6 +6,7 @@ from sgan.data.trajectories import TrajectoryDataset, seq_collate
 def data_loader(args, path):
     dset = TrajectoryDataset(
         path,
+        batchSize=args.batch_size,
         obs_len=args.obs_len,
         pred_len=args.pred_len,
         skip=args.skip,

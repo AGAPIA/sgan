@@ -42,12 +42,17 @@ def read_file(_path, delim='\t'):
         delim = '\t'
     elif delim == 'space':
         delim = ' '
+
+    filename, file_extension = os.path.splitext(_path)
+    if file_extension == '.pkl' or 'gitignore' in _path:
+        return False, None
+
     with open(_path, 'r') as f:
         for line in f:
             line = line.strip().split(delim)
             line = [float(i) for i in line]
             data.append(line)
-    return np.asarray(data)
+    return True, np.asarray(data)
 
 
 def poly_fit(traj, traj_len, threshold):
@@ -73,7 +78,7 @@ TRAJECTORY_DATASET_CACHEFILENAME = "dataset_cache.pkl"
 class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
     def __init__(
-        self, data_dir, obs_len=8, pred_len=12, skip=1, threshold=0.002,
+        self, data_dir, batchSize, obs_len=8, pred_len=12, skip=1, threshold=0.002,
         min_ped=1, delim='\t', useCache=False
     ):
         """
@@ -97,6 +102,8 @@ class TrajectoryDataset(Dataset):
         self.seq_len = self.obs_len + self.pred_len
         self.delim = delim
 
+        maxNumPedestriansConsidered = 0
+
         cacheFilePath = os.path.join(data_dir, TRAJECTORY_DATASET_CACHEFILENAME)
         if useCache and os.path.exists(cacheFilePath):
             logging.info("Reloading cached data for dataset given..")
@@ -111,6 +118,10 @@ class TrajectoryDataset(Dataset):
         else:
             all_files = os.listdir(self.data_dir)
             all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
+
+            # TERIBLE HACK
+            #all_files = all_files[:int(len(all_files)*0.6)]
+
             num_peds_in_seq = []
             seq_list = []
             seq_list_rel = []
@@ -118,7 +129,10 @@ class TrajectoryDataset(Dataset):
             non_linear_ped = []
             for pathIndex, path in enumerate(all_files):
                 logging.info("Reading file index {0}/{1}, folder path: {2}".format(pathIndex, len(all_files), path))
-                data = read_file(path, delim)
+                res, data = read_file(path, delim)
+                if res is False:
+                    continue
+
                 frames = np.unique(data[:, 0]).tolist()
                 frame_data = []
                 for frame in frames:
@@ -167,12 +181,18 @@ class TrajectoryDataset(Dataset):
                         curr_loss_mask[_idx, pad_front:pad_end] = 1
                         num_peds_considered += 1
 
+                        if num_peds_considered > 10:
+                            break
+
                     if num_peds_considered > min_ped:
                         non_linear_ped += _non_linear_ped
                         num_peds_in_seq.append(num_peds_considered)
                         loss_mask_list.append(curr_loss_mask[:num_peds_considered])
                         seq_list.append(curr_seq[:num_peds_considered])
                         seq_list_rel.append(curr_seq_rel[:num_peds_considered])
+
+                        if maxNumPedestriansConsidered < num_peds_considered:
+                            maxNumPedestriansConsidered = num_peds_considered
 
             seq_list = np.concatenate(seq_list, axis=0)
             seq_list_rel = np.concatenate(seq_list_rel, axis=0)
@@ -209,6 +229,18 @@ class TrajectoryDataset(Dataset):
         ]
 
         self.num_seq = len(self.seq_start_end)
+
+        logging.info("Dataset processed. Found that there are {0} sequences and a maximum of {1} agents per sequence".format(self.num_seq, maxNumPedestriansConsidered))
+        maxPerBatch = 0
+        prevBatchEnd = 0
+        for thisBatchStart in range(0, len(self.seq_start_end), batchSize):
+            thisBatchEnd = thisBatchStart + batchSize
+            numInThisBatch = np.sum([(end - start) for start,end in self.seq_start_end[prevBatchEnd:thisBatchEnd]])
+            prevBatchEnd = thisBatchEnd
+            if numInThisBatch > maxPerBatch:
+                maxPerBatch = numInThisBatch
+
+        logging.info("Max per batch {0}".format(maxPerBatch))
 
     def __len__(self):
         return self.num_seq

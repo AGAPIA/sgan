@@ -5,6 +5,9 @@ import os
 import sys
 import time
 
+sys.path.append(os.getcwd())
+#print(sys.path)
+
 from collections import defaultdict
 
 import torch
@@ -38,7 +41,7 @@ parser.add_argument('--skip', default=1, type=int)
 # Optimization
 parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--num_iterations', default=10000, type=int)
-parser.add_argument('--num_epochs', default=200, type=int)
+parser.add_argument('--num_epochs', default=10, type=int)
 
 # Model Options
 parser.add_argument('--embedding_dim', default=64, type=int)
@@ -245,6 +248,7 @@ def main(args):
             # discriminator followed by args.g_steps steps on the generator.
             if d_steps_left > 0:
                 step_type = 'd'
+                #logging.info("getting a new batch of shape ", batch.shape)
                 losses_d = discriminator_step(args, batch, generator,
                                               discriminator, d_loss_fn,
                                               optimizer_d)
